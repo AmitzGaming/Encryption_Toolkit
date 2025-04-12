@@ -123,6 +123,6 @@ Built with ❤️ using HTML, CSS, and JavaScript.
 
 - [Live Demo (if hosted)](#)
 - [Download Latest Version](#)
-- [Report Bug / Suggest Feature](https://github.com/YOUR_USERNAME/encryption-toolkit/issues)
+- [Report Bug / Suggest Feature](https://github.com/AmitzGaming/Encryption_Toolkit/issues)
 
 
