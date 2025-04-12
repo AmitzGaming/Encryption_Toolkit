@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Encryption Toolkit</title>
+  <style>
+    :root {
+      --bg: #1d1f27;
+      --fg: #f0f0f0;
+      --accent: #ff6b81;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      font-size: 2rem;
+    }
+
+    select, textarea, button, input[type="file"] {
+      margin: 0.5rem 0;
+      padding: 10px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+    }
+
+    textarea {
+      width: 90%;
+      max-width: 600px;
+      height: 120px;
+      resize: vertical;
+      background: rgba(255,255,255,0.05);
+      color: inherit;
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    .menu {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: rgba(255,255,255,0.05);
+      padding: 1rem;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 600px;
+    }
+
+    .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>🔐 Encryption Toolkit</h1>
+
+  <div class="row">
+    <label for="method">Select Method:</label>
+    <select id="method">
+      <option value="caesar">Caesar Cipher</option>
+      <option value="vigenere">Vigenère Cipher</option>
+      <option value="base64">Base64</option>
+      <option value="urlBase64">URL-Safe Base64</option>
+      <option value="morse">Morse Code</option>
+      <option value="reverse">Reverse</option>
+      <option value="rot13">ROT13</option>
+      <option value="auto">Universal Decrypt</option>
+    </select>
+
+    <label for="decrypt">Decrypt:</label>
+    <input type="checkbox" id="decrypt">
+  </div>
+
+  <textarea id="input" placeholder="Enter text..."></textarea>
+  <div class="row" id="extra-options">
+    <input id="shift" type="number" placeholder="Shift (for Caesar)" style="width: 140px;">
+    <input id="key" placeholder="Key (for Vigenère)" style="width: 180px;">
+  </div>
+  <input type="file" onchange="loadFile(event)">
+  <div class="menu">
+    <button onclick="processText()">🔁 Process</button>
+    <button onclick="copyOutput()">📋 Copy</button>
+    <button onclick="saveToFile()">💾 Save</button>
+    <button id="playSound" class="hidden" onclick="playMorse()">🔊 Play Morse</button>
+  </div>
+  <pre id="output">Output will appear here...</pre>
+
+  <script>
+    const inputBox = document.getElementById("input");
+    const outputBox = document.getElementById("output");
+    const decryptToggle = document.getElementById("decrypt");
+    const methodSelect = document.getElementById("method");
+    const playBtn = document.getElementById("playSound");
+    const shiftInput = document.getElementById("shift");
+    const keyInput = document.getElementById("key");
+
+    const morseCode = {
+      A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.",
+      G: "--.", H: "....", I: "..", J: ".---", K: "-.-", L: ".-..",
+      M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.",
+      S: "...", T: "-", U: "..-", V: "...-", W: ".--", X: "-..-",
+      Y: "-.--", Z: "--..", 0: "-----", 1: ".----", 2: "..---",
+      3: "...--", 4: "....-", 5: ".....", 6: "-....", 7: "--...",
+      8: "---..", 9: "----.", " ": "/"
+    };
+
+    function caesar(str, shift) {
+      return str.replace(/[a-z]/gi, c => {
+        const base = c === c.toLowerCase() ? 97 : 65;
+        return String.fromCharCode((c.charCodeAt(0) - base + shift + 26) % 26 + base);
+      });
+    }
+
+    function vigenere(str, key, decrypt = false) {
+      key = key.toUpperCase().replace(/[^A-Z]/g, "");
+      let j = 0;
+      return str.replace(/[a-z]/gi, c => {
+        const base = c === c.toLowerCase() ? 97 : 65;
+        const shift = key.charCodeAt(j++ % key.length) - 65;
+        const s = decrypt ? -shift : shift;
+        return String.fromCharCode((c.charCodeAt(0) - base + s + 26) % 26 + base);
+      });
+    }
+
+    function encodeMorse(str) {
+      return str.toUpperCase().split('').map(c => morseCode[c] || '').join(' ');
+    }
+
+    function decodeMorse(morse) {
+      const inverse = Object.fromEntries(Object.entries(morseCode).map(([k, v]) => [v, k]));
+      return morse.split(' ').map(code => inverse[code] || '').join('');
+    }
+
+    function reverseString(str) {
+      return str.split('').reverse().join('');
+    }
+
+    function rot13(str) {
+      return str.replace(/[a-z]/gi, c => {
+        const base = c === c.toLowerCase() ? 97 : 65;
+        return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+      });
+    }
+
+    function universalDecrypt(str) {
+      try { return atob(str); } catch {}
+      try { return decodeURIComponent(atob(str.replace(/-/g, '+').replace(/_/g, '/'))); } catch {}
+      try { return decodeMorse(str); } catch {}
+      return reverseString(str);
+    }
+
+    function processText() {
+      const text = inputBox.value.trim();
+      const decrypt = decryptToggle.checked;
+      const method = methodSelect.value;
+      let result = "";
+
+      if (method === "caesar") {
+        const shift = parseInt(shiftInput.value) || 0;
+        result = caesar(text, decrypt ? -shift : shift);
+      } else if (method === "vigenere") {
+        result = vigenere(text, keyInput.value, decrypt);
+      } else if (method === "base64") {
+        result = decrypt ? atob(text) : btoa(text);
+      } else if (method === "urlBase64") {
+        result = decrypt
+          ? atob(text.replace(/-/g, '+').replace(/_/g, '/'))
+          : btoa(text).replace(/\+/g, '-').replace(/\//g, '_');
+      } else if (method === "morse") {
+        result = decrypt ? decodeMorse(text) : encodeMorse(text);
+        playBtn.classList.toggle("hidden", decrypt);
+      } else if (method === "reverse") {
+        result = reverseString(text);
+      } else if (method === "rot13") {
+        result = rot13(text);
+      } else if (method === "auto") {
+        result = universalDecrypt(text);
+      }
+
+      outputBox.textContent = result;
+    }
+
+    function playMorse() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const unit = 0.1;
+      let time = ctx.currentTime;
+
+      for (let symbol of outputBox.textContent) {
+        if (symbol === "." || symbol === "-") {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = 600;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          const duration = symbol === "." ? unit : unit * 3;
+          osc.start(time);
+          osc.stop(time + duration);
+          time += duration + unit;
+        } else if (symbol === " ") {
+          time += unit;
+        }
+      }
+    }
+
+    function copyOutput() {
+      navigator.clipboard.writeText(outputBox.textContent).then(() =>
+        alert("Copied to clipboard!")
+      );
+    }
+
+    function saveToFile() {
+      const blob = new Blob([outputBox.textContent], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "output.txt";
+      link.click();
+    }
+
+    function loadFile(event) {
+      const reader = new FileReader();
+      reader.onload = e => inputBox.value = e.target.result;
+      reader.readAsText(event.target.files[0]);
+    }
+  </script>
+</body>
+</html>
